@@ -26,6 +26,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from chemistry import data_path  # noqa: E402
 
 import numpy as np
 
@@ -106,7 +107,7 @@ def _demo():
     from crystal_mic import min_dist, validity
 
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    raw = pickle.load(open(os.path.join(here, 'datasets', 'mgmno_100.pickle'), 'rb'))
+    raw = pickle.load(open(data_path('mgmno_100.pickle'), 'rb'))
     coords = np.array([np.array(c).flatten() for c, l in raw], dtype=np.float32)
     labels = np.array([np.array(l).flatten() for c, l in raw], dtype=np.float32)
 

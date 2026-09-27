@@ -15,9 +15,10 @@ warnings.filterwarnings('ignore')
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 from eval_wave import to_structures
+from chemistry import data_path
 from pymatgen.analysis.structure_matcher import StructureMatcher
 
-raw = pickle.load(open(os.path.join(HERE, 'mgmno_100.pickle'), 'rb'))
+raw = pickle.load(open(data_path('mgmno_100.pickle'), 'rb'))
 coords = np.array([np.array(c).flatten() for c, l in raw], dtype=np.float32)
 labels = np.array([np.array(l).flatten() for c, l in raw], dtype=np.float32)
 sm = StructureMatcher(ltol=0.3, stol=0.5, angle_tol=10)
@@ -33,5 +34,5 @@ for start in range(0, len(raw), 100):
         keep.append(int(idx[pos[id(g[0])]]))
     print(f'block {start // 100}: {len(keep)} distinct so far', flush=True)
 
-np.save(os.path.join(HERE, 'novelty_ref_idx.npy'), np.array(sorted(keep)))
+np.save(data_path('novelty_ref_idx.npy'), np.array(sorted(keep)))
 print(f'{len(keep)} distinct structures out of {len(raw)} rows')

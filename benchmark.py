@@ -28,6 +28,7 @@ Then LeMat-GenBench (E_hull, S.U.N./M.S.U.N. vs every known material):
     uv run scripts/run_benchmarks.py --cifs bench_out/<method> \\
         --config comprehensive_multi_mlip_hull --name <method>
 """
+from chemistry import data_path
 import argparse
 import itertools
 import os
@@ -135,7 +136,7 @@ def main():
     ap.add_argument('--n', type=int, default=500)
     ap.add_argument('--seed', type=int, default=0)
     ap.add_argument('--cif_dir', default=None)
-    ap.add_argument('--dataset', default='datasets/mgmno_100.pickle')
+    ap.add_argument('--dataset', default=data_path('mgmno_100.pickle'))
     ap.add_argument('--cif_only', action='store_true',
                     help='only write CIFs for the checkpoints (for LeMat-GenBench)')
     a = ap.parse_args()

@@ -232,8 +232,8 @@ def _demo():
     from pymatgen.core import Lattice, Structure
     from crystal_mic import decode
 
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'datasets', 'mgmno_100.pickle')
+    from chemistry import data_path
+    path = data_path('mgmno_100.pickle')
     raw = pickle.load(open(path, 'rb'))
     coords = np.array([np.array(c).flatten() for c, l in raw], dtype=np.float32)
     labels = np.array([np.array(l).flatten() for c, l in raw], dtype=np.float32)
