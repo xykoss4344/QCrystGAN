@@ -126,6 +126,7 @@ def stack(templates, device=None, dtype=torch.float32):
     return dict(rep=torch.tensor(np.stack([tp.rep for tp in templates]), device=device),
                 R=f('R'), t=f('t'), R0=f('R0'), t0=f('t0'), occ=f('occ'),
                 T=torch.tensor(np.stack([tp.T for tp in templates]), dtype=dtype, device=device),
+                mult=torch.tensor([CENTRING_MULT[tp.centring] for tp in templates], dtype=dtype, device=device),
                 cent=f('cent'),
                 system=[tp.system for tp in templates])
 
