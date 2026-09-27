@@ -15,6 +15,7 @@ import os
 CHEMS = {
     'mgmno': ('Mg', 'Mn', 2),
     'mgmno_lemat': ('Mg', 'Mn', 2),   # data-size control: LeMat-Bulk's Mg-Mn-O only
+    'mgmno_plus': ('Mg', 'Mn', 2),    # KAIST + LeMat-Bulk Mg-Mn-O (datasets/merge_mgmno_plus.py)
     'limno': ('Li', 'Mn', 1),
     'licoo': ('Li', 'Co', 1),
     'camno': ('Ca', 'Mn', 2),
