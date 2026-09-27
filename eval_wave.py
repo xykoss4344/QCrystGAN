@@ -89,6 +89,9 @@ def load_generator(ckpt_path, z_dim=64, hidden=12, layers=1, spectrum=1):
                             split_head=split, refine_rounds=rounds, trunk=trunk,
                             trunk_residual=not ck.get('args', {}).get('no_trunk_residual', False))
     gan.generator.load_state_dict(sd)
+    if ck.get('args', {}).get('sym_p', 0) > 0:
+        from crystal_symmetry import TemplateSampler
+        gan.generator.sym_sampler = TemplateSampler(p_sym=ck['args']['sym_p'])
     gan.generator.eval()
     return gan.generator, ck.get('epoch', -1), sf
 
