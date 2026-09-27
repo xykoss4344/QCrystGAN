@@ -19,6 +19,7 @@ Baseline (pre-fix checkpoint_490, 256 samples):
     v6  std_z 0.00033  std_label 0.11376  cell 3.8/4.2/3.3   0.0% valid  0.16 A
     real data                             cell 6.1/6.2/6.4 100.0% valid  1.92 A
 """
+from chemistry import data_path
 import numpy as np
 import torch
 
@@ -112,7 +113,7 @@ if __name__ == '__main__':
 
     p = argparse.ArgumentParser()
     p.add_argument('checkpoint')
-    p.add_argument('--dataset', default='datasets/mgmno_100.pickle')
+    p.add_argument('--dataset', default=data_path('mgmno_100.pickle'))
     p.add_argument('--z_dim', type=int, default=64)
     p.add_argument('--hidden_features', type=int, default=12)
     p.add_argument('--hidden_layers', type=int, default=1)

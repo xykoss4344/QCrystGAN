@@ -36,6 +36,7 @@ is not. Fixed seed, so the table is reproducible.
 A row is marked UNRELIABLE if the cell is inflated or z has collapsed, because
 its other numbers are then not comparable to anything.
 """
+from chemistry import data_path
 import argparse
 import glob
 import os
@@ -61,6 +62,9 @@ def load_generator(ckpt_path, z_dim=64, hidden=12, layers=1, spectrum=1):
     # Width/depth come from the saved args when present (qubit sweep: 4-16
     # qubits); the trunk projection's input width is the fallback.
     a = ck.get('args', {})
+    from chemistry import CHEM
+    # Runs from before chemistry.py carry no 'chem' and are all Mg-Mn-O.
+    assert a.get('chem', 'mgmno') == CHEM,         f"{ckpt_path} was trained on {a.get('chem', 'mgmno')}; set QGAN_CHEM={a.get('chem', 'mgmno')}"
     hidden = a.get('hidden_features', sd['trunk.2.weight'].shape[1] if 'trunk.2.weight' in sd else hidden)
     layers = a.get('hidden_layers', layers)
     spectrum = a.get('spectrum_layer', spectrum)
@@ -314,7 +318,7 @@ def main():
                     help='samples relaxed with CHGNet (~seconds each, x2 for the '
                          'real partner). 0 = skip. Use on the winning config only.')
     ap.add_argument('--seed', type=int, default=0)
-    ap.add_argument('--dataset', default='datasets/mgmno_100.pickle')
+    ap.add_argument('--dataset', default=data_path('mgmno_100.pickle'))
     a = ap.parse_args()
     np.random.seed(a.seed)
     torch.manual_seed(a.seed)

@@ -98,3 +98,18 @@ w24_classical_matched_s1).
 
 Motivation: the 3-seed ablation at 12 qubits was a tie (energy -0.008 +/- 0.014
 plain, +0.003 +/- 0.040 structure-factor). Reviewer item #12 asks for the sweep.
+
+Note: w26_q16_s1 at batch 64 reached 18.6 GB host RAM (PennyLane keeps every
+intermediate 2^16-amplitude state for backprop) and was stopped. The 16-qubit
+pair runs at --batch_size 32 for BOTH quantum and classical (w26_q16_b32_s1,
+w26_c16_b32_s1): ~5 GB, stable.
+
+## Wave 26 trim — 2026-09-27 15:30
+Stopped w26_q4_s1/w26_c4_s1 at ep100/110 (9 matched readings: energy/validity tie,
+S.U.N. +1.3 pt for quantum 9/9, single seed) and w26_q16_b32_s1/w26_c16_b32_s1
+(quantum at ~70 min/epoch on CUDA default.qubit, never reached ep10; needs a faster
+simulator e.g. lightning.gpu/CUDA-Q under WSL2). Added w26_q8_s2/w26_c8_s2 (seed 2).
+Remaining: w23 lead + 8-qubit seeds 0/1/2.
+Stopped w26_q8_s1/w26_c8_s1 at ep100 (quantum dE lower at all 10 readings, gap shrank 0.17 -> 0.03).
+Stopped w26_q8_s0/w26_c8_s0 at ep100 (classical ahead early, tie ep30-50, quantum ep60-70, classical ep90-100).
+Added 4-qubit seeds 0 and 2 (w26_q4_s0/c4_s0/q4_s2/c4_s2) for the paper's 3-seed requirement.

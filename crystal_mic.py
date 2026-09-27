@@ -11,8 +11,9 @@ One definition, used by probe_collapse.py and every eval.
 import numpy as np
 from ase import Atoms
 
-# Slot layout of the 28-atom representation: Mg 0:8, Mn 8:16, O 16:28.
-SPECIES_MAP = ['Mg'] * 8 + ['Mn'] * 8 + ['O'] * 12
+# Slot layout of the 28-atom representation: A 0:8, B 8:16, O 16:28 -- Mg/Mn/O
+# unless QGAN_CHEM picks another chemistry (chemistry.py).
+from chemistry import A, B, CHEM, SPECIES_MAP, data_floors, data_path
 
 # datasets/make_representation.py:go_to_15_cell places atoms in a 15A box
 # offset by 2.5A, so real occupied coords live in [1/6, 5/6]. Undo that to get
@@ -65,10 +66,15 @@ _MIN_SEP_BOND = {
 }
 FLOOR_SETS = {'literature': _MIN_SEP_LITERATURE, 'data': _MIN_SEP_DATA,
               'bond': _MIN_SEP_BOND}
+if CHEM != 'mgmno':
+    # Other chemistries only have floors measured on their own data
+    # (build_chem_dataset.py); the literature/bond sets were Mg-Mn-O specific.
+    _f = data_floors()
+    FLOOR_SETS = {'literature': _f, 'data': _f, 'bond': _f} if _f else {}
 
 # Default stays 'literature' so existing runs reproduce unchanged; train_crystal
 # selects with --floors, which keeps the ablation attributable.
-_MIN_SEP = _MIN_SEP_LITERATURE
+_MIN_SEP = FLOOR_SETS.get('literature')
 
 
 def set_floors(name):
@@ -128,6 +134,9 @@ def min_dist(coords_90, label_28, species_map=SPECIES_MAP):
 # cation-cation contacts under ~1.8 A that the 1.0 A bar passes -- the reason a
 # run at "80% valid" scored 13% on the benchmark.
 _LEMAT_RADII = {'Mg': 1.5, 'Mn': 1.4, 'O': 0.6}
+if CHEM != 'mgmno':
+    from pymatgen.core import Element
+    _LEMAT_RADII = {e: float(Element(e).atomic_radius) for e in (A, B, 'O')}
 
 
 def lemat_valid(coords_90, label_28, species_map=SPECIES_MAP):
@@ -155,9 +164,7 @@ def validity(coords, labels, threshold=VALID_THRESHOLD, species_map=SPECIES_MAP)
 def _demo():
     """Real structures must be ~100% valid. They are the ground truth."""
     import pickle, os
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'datasets', 'mgmno_100.pickle')
-    raw = pickle.load(open(path, 'rb'))
+    raw = pickle.load(open(data_path('mgmno_100.pickle'), 'rb'))
     coords = [np.array(c).flatten() for c, l in raw]
     labels = [np.array(l).flatten() for c, l in raw]
     frac_valid, dists = validity(coords, labels)

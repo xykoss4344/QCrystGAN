@@ -15,6 +15,7 @@ Honest differences from the papers:
 
     python csp_bench.py --ckpt runs/w20_force05_s1/checkpoint_90.pt --n_targets 300
 """
+from chemistry import data_path
 import argparse
 import os
 import pickle
@@ -54,10 +55,10 @@ def main():
     from pymatgen.analysis.structure_matcher import StructureMatcher
     sm = StructureMatcher(stol=0.5, angle_tol=10, ltol=0.3)
 
-    raw = pickle.load(open('datasets/mgmno_100.pickle', 'rb'))
+    raw = pickle.load(open(data_path('mgmno_100.pickle'), 'rb'))
     rc = np.array([np.array(c).flatten() for c, _ in raw], dtype=np.float32)
     rl = np.array([np.array(l).flatten() for _, l in raw], dtype=np.float32)
-    ref = np.load('datasets/novelty_ref_idx.npy')
+    ref = np.load(data_path('novelty_ref_idx.npy'))
     rng = np.random.default_rng(0)
     tgt = rng.choice(ref, size=min(a.n_targets, len(ref)), replace=False)
     targets = [one_structure(rc[i], rl[i]) for i in tgt]

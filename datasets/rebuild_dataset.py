@@ -12,6 +12,7 @@ unique_mgmno.npy. This regenerates the supercells from them, then re-runs steps
 5-7, the distribution-loss quantile targets, and the novelty reference.
 
     cd datasets && python rebuild_dataset.py
+    QGAN_CHEM=limno python datasets/rebuild_dataset.py   # datasets/limno/ (build_chem_dataset.py)
 """
 import importlib.util
 import os
@@ -23,13 +24,14 @@ import sys
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-os.chdir(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.dirname(HERE))
+from chemistry import DATA_DIR  # noqa: E402  -- datasets/ for mgmno, datasets/<chem>/ otherwise
+os.chdir(DATA_DIR)
 
 
 def load_script(fname):
-    spec = importlib.util.spec_from_file_location(fname.replace('.', '_'), fname)
+    spec = importlib.util.spec_from_file_location(fname.replace('.', '_'), os.path.join(HERE, fname))
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -61,7 +63,13 @@ def main():
             new_names += [name] * 3
             parent += [i] * 3
     new_sc = np.vstack(new_sc)
-    print(f'{len(prims)} primitives -> {len(new_sc)} supercells')
+    # A doubled cell side over 30 A does not fit the representation (lengths/30,
+    # clipped on decode). None in Mg-Mn-O; a few in other chemistries.
+    fits = new_sc.reshape(len(new_sc), 30, 3)[:, 0].max(-1) <= 1.0
+    new_sc = new_sc[fits]
+    new_names = [n for n, f in zip(new_names, fits) if f]
+    parent = [p for p, f in zip(parent, fits) if f]
+    print(f'{len(prims)} primitives -> {len(new_sc)} supercells ({(~fits).sum()} too large, dropped)')
 
     # Self-check: a correct supercell has exactly its primitive's minimum
     # interatomic distance. The bug moved atoms onto the wrong sites, which
@@ -78,7 +86,9 @@ def main():
         pickle.dump(list(names) + new_names, f)
 
     py = sys.executable
-    run = lambda *a: subprocess.run([py, *a], check=True, stdout=subprocess.DEVNULL)
+    env = dict(os.environ, PYTHONPATH=os.pathsep.join([HERE, os.path.dirname(HERE)]))
+    run = lambda script, *a: subprocess.run([py, os.path.join(HERE, script), *a], check=True,
+                                            stdout=subprocess.DEVNULL, env=env)
     run('5.make_comp_dict.py')
     # Two independent augmentation draws, as the original pair was.
     run('6.data_augmentation_mgmno.py', '100', '1')
@@ -107,7 +117,7 @@ def main():
     np.save('real_vpa_quantiles.npy', torch.quantile(vpa, q).numpy())
     print(f'nn median {v.median():.3f} A, vpa median {vpa.median():.2f} A^3/atom')
     from crystal_physics import save_nn_class_quantiles
-    save_nn_class_quantiles(c, lab, HERE)
+    save_nn_class_quantiles(c, lab, DATA_DIR)
 
     run('make_novelty_reference.py')
     print('done: mgmno_100.pickle, mgmno_100_aug.pickle, quantiles, novelty_ref_idx.npy')

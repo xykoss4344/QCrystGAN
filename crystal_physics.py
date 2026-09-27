@@ -33,7 +33,9 @@ _MG, _MN, _O = slice(0, 8), slice(8, 16), slice(16, 28)
 
 # Crude X-ray form factors: atomic number. Adequate here because the structure
 # factor is used as a *relative* fingerprint, never as an absolute intensity.
-_Z = torch.tensor([12.0] * 8 + [25.0] * 8 + [8.0] * 12)
+from chemistry import Q_A, SPECIES_MAP, data_path
+from pymatgen.core import Element as _El
+_Z = torch.tensor([float(_El(e).Z) for e in SPECIES_MAP])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -89,10 +91,11 @@ def formal_charges(labels):
     n_mg = labels[:, _MG].sum(dim=1)
     n_mn = labels[:, _MN].sum(dim=1)
     n_o = labels[:, _O].sum(dim=1)
-    q_mn = ((2.0 * n_o - 2.0 * n_mg) / n_mn.clamp(min=1.0)).clamp(2.0, 4.0)
+    # Q_A: formal charge of the A cation (Mg/Ca +2, Li +1; chemistry.py).
+    q_mn = ((2.0 * n_o - Q_A * n_mg) / n_mn.clamp(min=1.0)).clamp(2.0, 4.0)
 
     q = torch.zeros_like(labels)
-    q[:, _MG] = 2.0
+    q[:, _MG] = float(Q_A)
     q[:, _MN] = q_mn.unsqueeze(1)
     q[:, _O] = -2.0
     return q * labels
@@ -328,8 +331,7 @@ def real_quantiles(name, device=None, dtype=torch.float32):
     """
     if name not in _QUANTILE_CACHE:
         import os
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            'datasets', f'real_{name}_quantiles.npy')
+        path = data_path(f'real_{name}_quantiles.npy')
         _QUANTILE_CACHE[name] = torch.from_numpy(np.load(path))
     q = _QUANTILE_CACHE[name]
     return q.to(device=device, dtype=dtype) if device is not None else q.to(dtype)
@@ -453,8 +455,8 @@ def _demo():
     import os
     import pickle
 
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'datasets', 'mgmno_100.pickle')
+    from chemistry import data_path
+    path = data_path('mgmno_100.pickle')
     raw = pickle.load(open(path, 'rb'))
     coords = torch.tensor(np.array([np.array(c).flatten() for c, l in raw]),
                           dtype=torch.float32)

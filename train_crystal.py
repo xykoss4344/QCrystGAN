@@ -1,4 +1,5 @@
 
+from chemistry import data_path
 import os
 import argparse
 import pickle
@@ -836,7 +837,7 @@ def train(args):
 # ─────────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dataset_path",    type=str,   default=r"datasets\mgmno_100_aug.pickle")
+    parser.add_argument("--dataset_path",    type=str,   default=data_path("mgmno_100_aug.pickle"))
     parser.add_argument("--n_epochs",        type=int,   default=500)
     parser.add_argument("--batch_size",      type=int,   default=32)
     parser.add_argument("--z_dim",           type=int,   default=64)
@@ -1020,6 +1021,8 @@ if __name__ == "__main__":
     parser.add_argument("--plateau_tol",      type=float, default=0.02,
                         help="W-loss range threshold below which plateau is flagged.")
     args = parser.parse_args()
+    from chemistry import CHEM
+    args.chem = CHEM  # QGAN_CHEM at train time; eval_wave.load_generator checks it
 
     os.makedirs(args.out_folder, exist_ok=True)
     # Waves 7-8 cannot be reproduced: nothing recorded their flags.
