@@ -92,7 +92,8 @@ def load_generator(ckpt_path, z_dim=64, hidden=12, layers=1, spectrum=1):
     load_generator_state(gan.generator, sd)
     if ck.get('args', {}).get('sym_p', 0) > 0:
         from crystal_symmetry import TemplateSampler
-        gan.generator.sym_sampler = TemplateSampler(p_sym=ck['args']['sym_p'])
+        gan.generator.sym_sampler = TemplateSampler(p_sym=ck['args']['sym_p'],
+                                                    p_data=ck['args'].get('sym_data', 0.0))
     gan.generator.eval()
     return gan.generator, ck.get('epoch', -1), sf
 

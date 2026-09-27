@@ -296,6 +296,53 @@ def site_dof(sg, label):
     return _DOF[(sg, label)]
 
 
+def build_data_bank():
+    """Templates of the real training crystals -> datasets/<chem>/sym_bank_data.pkl.
+
+    Enumerated layouts are feasible but mostly unlike real crystals, and the
+    generator could not fill them (w27d from scratch: 13% valid at epoch 20;
+    hexagonal/tetragonal/I-centred templates 9-24% after fine-tuning). DiffCSP++
+    and WyFormer learn their templates from data; this takes them from data.
+    The generator still chooses every free coordinate and the cell. Keyed by
+    the template's own primitive composition, which is the label composition
+    except for supercell rows -- those fall back to the enumerated bank.
+    """
+    import collections
+    import pickle
+    import warnings
+    warnings.filterwarnings('ignore')
+    from pyxtal import pyxtal
+    from chemistry import A, B, data_path
+    from eval_wave import to_structures
+    raw = pickle.load(open(data_path('mgmno_100.pickle'), 'rb'))
+    ref = np.load(data_path('novelty_ref_idx.npy'))
+    c = np.array([np.array(x).flatten() for x, _ in raw], dtype=np.float32)[ref]
+    lab = np.array([np.array(y).flatten() for _, y in raw], dtype=np.float32)[ref]
+    counts = collections.Counter()
+    for st in to_structures(c, lab, cap=len(ref)):
+        x = pyxtal()
+        try:
+            x.from_seed(st, tol=0.1)
+        except Exception:
+            continue
+        sg = x.group.number
+        layout = [sorted(s.wp.get_label() for s in x.atom_sites if s.specie == e) for e in (A, B, 'O')]
+        try:
+            comp = Template(sg, layout).counts()
+        except AssertionError:
+            continue                        # conventional layout overflows the slots
+        counts[(comp, sg, str(layout))] += 1
+    bank = collections.defaultdict(dict)
+    for (comp, sg, lay), n in counts.items():
+        w, lays = bank[comp].get(sg, (0, []))
+        bank[comp][sg] = (w + n, lays + [eval(lay)])
+    bank = {comp: [(sg, w, lays) for sg, (w, lays) in d.items()] for comp, d in bank.items()}
+    out = data_path('sym_bank_data.pkl')
+    pickle.dump(dict(bank=bank), open(out, 'wb'))
+    print(f'{sum(counts.values())} real crystals -> {len(counts)} templates over {len(bank)} compositions -> {out}')
+    return out
+
+
 class TemplateSampler:
     """Composition -> random Template: space group by data frequency, layout
     weighted by exp(beta * mean free coordinates per site).
@@ -307,11 +354,17 @@ class TemplateSampler:
     beta = 7 brings the sampled mean to the data's (1.17 at beta 0, 1.58 at 8).
     """
 
-    def __init__(self, path=None, p_sym=1.0, seed=0, beta=7.0):
+    def __init__(self, path=None, p_sym=1.0, seed=0, beta=7.0, p_data=0.0):
+        import os
         import pickle
         from chemistry import data_path
         d = pickle.load(open(path or data_path('sym_bank.pkl'), 'rb'))
         self.bank, self.p_sym, self.beta = d['bank'], p_sym, beta
+        # p_data: chance of drawing a real crystal's template when one exists
+        # for this composition (build_data_bank); otherwise an enumerated one.
+        self.p_data = p_data
+        dp = data_path('sym_bank_data.pkl')
+        self.data_bank = pickle.load(open(dp, 'rb'))['bank'] if p_data > 0 and os.path.exists(dp) else {}
         self._lw = {}
         self.rng = np.random.default_rng(seed)
         self._cache = {}
@@ -319,14 +372,19 @@ class TemplateSampler:
 
     def sample(self, comp):
         entries = self.bank.get(tuple(comp))
+        real = self.data_bank.get(tuple(comp))
+        if real and self.rng.random() < self.p_data:
+            entries, beta = real, 0.0          # real templates: weight by frequency only
+        else:
+            beta = self.beta
         if not entries or self.rng.random() > self.p_sym:
             entries = [(1, 1, [[['1a'] * comp[0], ['1a'] * comp[1], ['1a'] * comp[2]]])]
         w = np.array([e[1] for e in entries], dtype=float)
         sg, _, layouts = entries[self.rng.choice(len(entries), p=w / w.sum())]
-        key_w = (tuple(comp), sg)
+        key_w = (tuple(comp), sg, beta, len(layouts))
         if key_w not in self._lw:
             m = np.array([np.mean([site_dof(sg, x) for sp in lay for x in sp]) for lay in layouts])
-            lw = np.exp(self.beta * (m - m.max()))
+            lw = np.exp(beta * (m - m.max()))
             self._lw[key_w] = lw / lw.sum()
         lay = layouts[self.rng.choice(len(layouts), p=self._lw[key_w])]
         key = (sg, str(lay))
@@ -411,4 +469,4 @@ def _selfcheck(n=60):
 
 if __name__ == '__main__':
     import sys
-    build_bank() if 'bank' in sys.argv else _selfcheck()
+    build_data_bank() if 'databank' in sys.argv else build_bank() if 'bank' in sys.argv else _selfcheck()

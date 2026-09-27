@@ -491,7 +491,7 @@ def train(args):
     generator = gan.generator.to(device)
     if args.sym_p > 0:
         from crystal_symmetry import TemplateSampler
-        generator.sym_sampler = TemplateSampler(p_sym=args.sym_p, seed=args.seed)
+        generator.sym_sampler = TemplateSampler(p_sym=args.sym_p, seed=args.seed, p_data=args.sym_data)
         print(f"Symmetry templates on: p_sym={args.sym_p} (crystal_symmetry.py)")
     critic    = gan.critic.to(device)
     q_head    = QHead(data_dim=data_dim).to(device)
@@ -964,6 +964,9 @@ if __name__ == "__main__":
     parser.add_argument("--sym_p",           type=float, default=0.0,
                         help="Share of generated crystals built from a space-group + Wyckoff "
                              "template (crystal_symmetry.py); the rest stay free P1. 0 = off.")
+    parser.add_argument("--sym_data",        type=float, default=0.0,
+                        help="Chance a symmetric template is a real training crystal's "
+                             "(space group + Wyckoff layout) rather than enumerated.")
     parser.add_argument("--refine_rounds",   type=int,   default=0,
                         help="Rounds of periodic E(3)-equivariant message passing "
                              "after the set head (models.PeriodicRefiner). 0 = off. "
