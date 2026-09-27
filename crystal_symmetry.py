@@ -266,14 +266,34 @@ def build_bank(max_layouts=64, seed=0, workers=8):
     return out
 
 
-class TemplateSampler:
-    """Composition -> random Template (space group by data frequency, layout uniform)."""
+_DOF = {}
 
-    def __init__(self, path=None, p_sym=1.0, seed=0):
+
+def site_dof(sg, label):
+    """Free coordinates of a Wyckoff position (0 = fixed point, 3 = general)."""
+    if (sg, label) not in _DOF:
+        from pyxtal.symmetry import Group
+        _DOF[(sg, label)] = Group(sg)[label].get_dof()
+    return _DOF[(sg, label)]
+
+
+class TemplateSampler:
+    """Composition -> random Template: space group by data frequency, layout
+    weighted by exp(beta * mean free coordinates per site).
+
+    Uniform layouts average 1.20 free coordinates per site against 1.53 in real
+    symmetric Mg-Mn-O: enumeration is dominated by special-position-heavy
+    layouts, whose one-parameter sites the generator then has to keep apart
+    (w27_sym_ft ep210: most invalid crystals were two such sites coinciding).
+    beta = 7 brings the sampled mean to the data's (1.17 at beta 0, 1.58 at 8).
+    """
+
+    def __init__(self, path=None, p_sym=1.0, seed=0, beta=7.0):
         import pickle
         from chemistry import data_path
         d = pickle.load(open(path or data_path('sym_bank.pkl'), 'rb'))
-        self.bank, self.p_sym = d['bank'], p_sym
+        self.bank, self.p_sym, self.beta = d['bank'], p_sym, beta
+        self._lw = {}
         self.rng = np.random.default_rng(seed)
         self._cache = {}
         self._placed = {}   # ponytail: unbounded; a few thousand (template, mask) pairs
@@ -284,7 +304,12 @@ class TemplateSampler:
             entries = [(1, 1, [[['1a'] * comp[0], ['1a'] * comp[1], ['1a'] * comp[2]]])]
         w = np.array([e[1] for e in entries], dtype=float)
         sg, _, layouts = entries[self.rng.choice(len(entries), p=w / w.sum())]
-        lay = layouts[self.rng.integers(len(layouts))]
+        key_w = (tuple(comp), sg)
+        if key_w not in self._lw:
+            m = np.array([np.mean([site_dof(sg, x) for sp in lay for x in sp]) for lay in layouts])
+            lw = np.exp(self.beta * (m - m.max()))
+            self._lw[key_w] = lw / lw.sum()
+        lay = layouts[self.rng.choice(len(layouts), p=self._lw[key_w])]
         key = (sg, str(lay))
         if key not in self._cache:
             self._cache[key] = Template(sg, lay)
