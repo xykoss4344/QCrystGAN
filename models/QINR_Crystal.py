@@ -439,6 +439,9 @@ class PQWGAN_CC_Crystal():
             # Periodic message-passing refinement after the set head (optional).
             self.refiner = (PeriodicRefiner(rounds=refine_rounds)
                             if (refine_rounds > 0 and split_head and set_head) else None)
+            # Symmetry templates (crystal_symmetry.TemplateSampler), attached by
+            # train_crystal --sym_p / eval_wave.load_generator. None = free P1 output.
+            self.sym_sampler = None
 
         @property
         def sf_layer(self):
@@ -464,6 +467,16 @@ class PQWGAN_CC_Crystal():
                 return torch.cat([cell, atoms], dim=1)
 
             cell   = self.cell_lo + (self.cell_hi - self.cell_lo) * self.cell_head(shared)
+            tb = None
+            if self.sym_sampler is not None:
+                # The cell head's six numbers become the template's conventional
+                # cell, constrained to its crystal system; the representation
+                # stores the primitive cell, which holds the <= 28 atoms.
+                from crystal_symmetry import constrain_cell, primitive_params
+                tb = self.sym_sampler.batch(label, device=cell.device)
+                L, Ang = constrain_cell(cell[:, :3] * 30.0, cell[:, 3:] * 180.0, tb['system'])
+                pl, pa = primitive_params(L, Ang, tb)
+                cell = torch.cat([pl / 30.0, pa / 180.0], dim=1)
 
             # Real occupied coords live in [1/6, 5/6] (the 15A re-boxing in
             # datasets/make_representation.py:go_to_15_cell); empty slots are
@@ -473,10 +486,22 @@ class PQWGAN_CC_Crystal():
             if self.set_head and self.refiner is not None:
                 raw, tok = self.atom_head(shared, cell, label, self.last_rho,
                                           return_tokens=True)
-                raw = self.refiner(raw.view(-1, 28, 3), cell, label, tok).reshape(-1, 84)
+                raw = raw.view(-1, 28, 3)
+                if tb is not None:
+                    from crystal_symmetry import expand, project
+                    raw = expand(raw, tb)      # head output = one free point per site
+                raw = self.refiner(raw, cell, label, tok)
+                if tb is not None:
+                    # ponytail: keeps only each site's first-slot update; average
+                    # the refiner's moves over the orbit if that proves lossy.
+                    raw = project(raw, tb)
+                raw = raw.reshape(-1, 84)
             else:
                 raw = (self.atom_head(shared, cell, label, self.last_rho) if self.set_head
                        else self.atom_head(shared))                    # (batch, 84)
+                if tb is not None:
+                    from crystal_symmetry import expand
+                    raw = expand(raw.view(-1, 28, 3), tb).reshape(-1, 84)
             atoms  = BOX_OFFSET + BOX_SCALE * raw
             atoms  = atoms * label.repeat_interleave(3, dim=1)
 
