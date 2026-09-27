@@ -88,7 +88,8 @@ def load_generator(ckpt_path, z_dim=64, hidden=12, layers=1, spectrum=1):
                             spectrum_layer=spectrum, use_noise=0.0, sf_head=sf,
                             split_head=split, refine_rounds=rounds, trunk=trunk,
                             trunk_residual=not ck.get('args', {}).get('no_trunk_residual', False))
-    gan.generator.load_state_dict(sd)
+    from models.QINR_Crystal import load_generator_state
+    load_generator_state(gan.generator, sd)
     if ck.get('args', {}).get('sym_p', 0) > 0:
         from crystal_symmetry import TemplateSampler
         gan.generator.sym_sampler = TemplateSampler(p_sym=ck['args']['sym_p'])

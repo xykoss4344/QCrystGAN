@@ -209,11 +209,21 @@ class SetAtomHead(nn.Module):
             }) for _ in range(n_blocks)
         ])
         self.out = nn.Linear(d_model, 3)
+        # Symmetry template per slot (crystal_symmetry.N_SITE_FEAT): without it
+        # the head cannot know which Wyckoff site a slot's point will be copied
+        # onto, and emits the same points whatever template is drawn (w27c from
+        # scratch: contact loss stuck at ~15 vs ~4 unconstrained). Zero-init, so
+        # checkpoints trained without templates start out unchanged.
+        from crystal_symmetry import N_SITE_FEAT
+        self.site_proj = nn.Linear(N_SITE_FEAT, d_model)
+        nn.init.zeros_(self.site_proj.weight); nn.init.zeros_(self.site_proj.bias)
 
-    def forward(self, shared, cell, label, rho=None, return_tokens=False):
+    def forward(self, shared, cell, label, rho=None, return_tokens=False, site_feat=None):
         b = shared.shape[0]
         x = self.slot_embed.unsqueeze(0).expand(b, -1, -1)          # (B, 28, d)
         x = x + self.cell_proj(cell).unsqueeze(1)                   # every atom sees the box
+        if site_feat is not None:
+            x = x + self.site_proj(site_feat)                       # ... and its Wyckoff site
         scale, shift = self.film(shared).chunk(2, dim=-1)
         x = x * (1 + scale).unsqueeze(1) + shift.unsqueeze(1)       # quantum conditioning
         if self.rho_proj is not None and rho is not None:
@@ -233,6 +243,15 @@ class SetAtomHead(nn.Module):
 
         pos = torch.sigmoid(self.out(x)).reshape(b, self.n_slots * 3)
         return (pos, x) if return_tokens else pos
+
+
+def load_generator_state(gen, sd):
+    """load_state_dict that tolerates only the zero-initialised symmetry
+    conditioning layers being absent (checkpoints from before them)."""
+    missing, unexpected = gen.load_state_dict(sd, strict=False)
+    new = ('group_proj.', 'atom_head.site_proj.')
+    bad = [k for k in missing if not k.startswith(new)] + list(unexpected)
+    assert not bad, f'checkpoint does not match the generator: {bad[:5]}'
 
 
 def _lattice_from_cell(cell6):
@@ -442,6 +461,12 @@ class PQWGAN_CC_Crystal():
             # Symmetry templates (crystal_symmetry.TemplateSampler), attached by
             # train_crystal --sym_p / eval_wave.load_generator. None = free P1 output.
             self.sym_sampler = None
+            # The cell head sees the template's crystal system, centring and group,
+            # so it can size a cubic F cell differently from a monoclinic P one.
+            # Zero-init: no effect until trained.
+            from crystal_symmetry import N_GROUP_FEAT
+            self.group_proj = nn.Linear(N_GROUP_FEAT, 6)
+            nn.init.zeros_(self.group_proj.weight); nn.init.zeros_(self.group_proj.bias)
 
         @property
         def sf_layer(self):
@@ -466,14 +491,16 @@ class PQWGAN_CC_Crystal():
                 atoms = atoms * label.repeat_interleave(3, dim=1)
                 return torch.cat([cell, atoms], dim=1)
 
-            cell   = self.cell_lo + (self.cell_hi - self.cell_lo) * self.cell_head(shared)
-            tb = None
-            if self.sym_sampler is not None:
+            tb = self.sym_sampler.batch(label, device=shared.device) if self.sym_sampler is not None else None
+            logits = self.cell_head[:-1](shared)
+            if tb is not None:
+                logits = logits + self.group_proj(tb['group_feat'])
+            cell   = self.cell_lo + (self.cell_hi - self.cell_lo) * torch.sigmoid(logits)
+            if tb is not None:
                 # The cell head's six numbers become the template's conventional
                 # cell, constrained to its crystal system; the representation
                 # stores the primitive cell, which holds the <= 28 atoms.
                 from crystal_symmetry import constrain_cell, primitive_params
-                tb = self.sym_sampler.batch(label, device=cell.device)
                 # The head sizes the cell that holds the atoms; a centred
                 # conventional cell holds `mult` primitive cells, so scale its
                 # volume by that. Unscaled, C/I cells came out at 7 A^3/atom,
@@ -489,8 +516,8 @@ class PQWGAN_CC_Crystal():
             # support, then mask empty slots to exact zero -- that makes the
             # conditioning structural instead of something the critic has to teach.
             if self.set_head and self.refiner is not None:
-                raw, tok = self.atom_head(shared, cell, label, self.last_rho,
-                                          return_tokens=True)
+                raw, tok = self.atom_head(shared, cell, label, self.last_rho, return_tokens=True,
+                                          site_feat=None if tb is None else tb['site_feat'])
                 raw = raw.view(-1, 28, 3)
                 if tb is not None:
                     from crystal_symmetry import expand, project
@@ -502,8 +529,9 @@ class PQWGAN_CC_Crystal():
                     raw = project(raw, tb)
                 raw = raw.reshape(-1, 84)
             else:
-                raw = (self.atom_head(shared, cell, label, self.last_rho) if self.set_head
-                       else self.atom_head(shared))                    # (batch, 84)
+                raw = (self.atom_head(shared, cell, label, self.last_rho,
+                                      site_feat=None if tb is None else tb['site_feat'])
+                       if self.set_head else self.atom_head(shared))   # (batch, 84)
                 if tb is not None:
                     from crystal_symmetry import expand
                     raw = expand(raw.view(-1, 28, 3), tb).reshape(-1, 84)

@@ -37,6 +37,12 @@ _CENT = {k: np.array([[0, 0, 0]] + v + [[0, 0, 0]] * (3 - len(v)), dtype=float) 
 N_SLOTS, SLOT_START = 28, (0, 8, 16)   # A 0:8, B 8:16, O 16:28
 
 
+SYSTEMS = ('triclinic', 'monoclinic', 'orthorhombic', 'tetragonal', 'hexagonal', 'cubic')
+CENTRINGS = ('P', 'C', 'A', 'I', 'F', 'R')
+N_GROUP_FEAT = len(SYSTEMS) + len(CENTRINGS) + 1                 # + space group number / 230
+N_SITE_FEAT = 3 + 9 + 3                                          # mult, dof, first-slot; R0; t0
+
+
 def crystal_system(sg):
     return ('triclinic' if sg <= 2 else 'monoclinic' if sg <= 15 else 'orthorhombic' if sg <= 74
             else 'tetragonal' if sg <= 142 else 'hexagonal' if sg <= 194 else 'cubic')
@@ -92,6 +98,18 @@ class Template:
                     R0[j + k], t0[j + k] = r0, s0
                 j += len(ops)
         self.rep, self.R, self.t, self.R0, self.t0, self.occ = rep, R, t, R0, t0, occ
+        # What each slot is, for the heads: its orbit size, the site's free
+        # coordinates, whether it is the site's first slot, and the Wyckoff
+        # constraint itself (R0, t0). Zero on empty slots.
+        mult = np.array([(rep == rep[j]).sum() if occ[j] else 0 for j in range(N_SLOTS)])
+        dof = np.array([np.linalg.matrix_rank(R0[j]) if occ[j] else 0 for j in range(N_SLOTS)])
+        first = (rep == np.arange(N_SLOTS)) & (occ > 0)
+        self.site_feat = np.concatenate([np.stack([mult / 8.0, dof / 3.0, first], 1),
+                                         R0.reshape(N_SLOTS, 9) * occ[:, None],
+                                         t0 * occ[:, None]], 1)
+        self.group_feat = np.concatenate([np.eye(len(SYSTEMS))[SYSTEMS.index(self.system)],
+                                          np.eye(len(CENTRINGS))[CENTRINGS.index(self.centring)],
+                                          [sg / 230.0]])
 
     def counts(self):
         return tuple(int(self.occ[a:b].sum()) for a, b in ((0, 8), (8, 16), (16, 28)))
@@ -114,7 +132,7 @@ class Template:
         out = Template.__new__(Template)
         out.__dict__.update(self.__dict__)
         inv = np.empty(N_SLOTS, dtype=int); inv[where] = np.arange(N_SLOTS)
-        for k in ('R', 't', 'R0', 't0', 'occ'):
+        for k in ('R', 't', 'R0', 't0', 'occ', 'site_feat'):
             v = getattr(self, k); nv = np.empty_like(v); nv[where] = v; setattr(out, k, nv)
         nrep = np.empty_like(self.rep); nrep[where] = where[self.rep]; out.rep = nrep
         return out
@@ -127,7 +145,7 @@ def stack(templates, device=None, dtype=torch.float32):
                 R=f('R'), t=f('t'), R0=f('R0'), t0=f('t0'), occ=f('occ'),
                 T=torch.tensor(np.stack([tp.T for tp in templates]), dtype=dtype, device=device),
                 mult=torch.tensor([CENTRING_MULT[tp.centring] for tp in templates], dtype=dtype, device=device),
-                cent=f('cent'),
+                cent=f('cent'), site_feat=f('site_feat'), group_feat=f('group_feat'),
                 system=[tp.system for tp in templates])
 
 

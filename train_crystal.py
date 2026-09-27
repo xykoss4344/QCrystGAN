@@ -568,9 +568,10 @@ def train(args):
     if args.resume_checkpoint and os.path.exists(args.resume_checkpoint):
         print(f"Resuming from {args.resume_checkpoint}...")
         ckpt = torch.load(args.resume_checkpoint, map_location=device)
-        generator.load_state_dict(ckpt.get('generator_live', ckpt['generator']))
+        from models.QINR_Crystal import load_generator_state
+        load_generator_state(generator, ckpt.get('generator_live', ckpt['generator']))
         if ema is not None:
-            ema.module.load_state_dict(ckpt['generator'])
+            load_generator_state(ema.module, ckpt['generator'])
         critic.load_state_dict(ckpt['critic'])
         q_head.load_state_dict(ckpt['q_head'])
         start_epoch = ckpt['epoch'] + 1
