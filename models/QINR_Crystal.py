@@ -474,7 +474,12 @@ class PQWGAN_CC_Crystal():
                 # stores the primitive cell, which holds the <= 28 atoms.
                 from crystal_symmetry import constrain_cell, primitive_params
                 tb = self.sym_sampler.batch(label, device=cell.device)
-                L, Ang = constrain_cell(cell[:, :3] * 30.0, cell[:, 3:] * 180.0, tb['system'])
+                # The head sizes the cell that holds the atoms; a centred
+                # conventional cell holds `mult` primitive cells, so scale its
+                # volume by that. Unscaled, C/I cells came out at 7 A^3/atom,
+                # R at 4.3 and F at 3.3 against a real 11.3 (w27b ep220).
+                L, Ang = constrain_cell(cell[:, :3] * 30.0 * tb['mult'].unsqueeze(1) ** (1 / 3),
+                                        cell[:, 3:] * 180.0, tb['system'])
                 pl, pa = primitive_params(L, Ang, tb)
                 cell = torch.cat([pl / 30.0, pa / 180.0], dim=1)
 
