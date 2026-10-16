@@ -495,6 +495,18 @@ def train(args):
         print(f"Symmetry templates on: p_sym={args.sym_p} (crystal_symmetry.py)")
     critic    = gan.critic.to(device)
     q_head    = QHead(data_dim=data_dim).to(device)
+    # VAE-GAN reconstruction (optional): an encoder maps each REAL crystal to a
+    # latent code and G must rebuild it from that code. The critic only asks G
+    # to look real, so G may drop whole families of training crystals (measured:
+    # uniqueness 85% on the 40-crystal stable set). Reconstruction makes every
+    # training crystal reachable from some z; the KL term keeps encoded codes on
+    # the N(0, 1) prior that sampling draws from.
+    encoder = None
+    if args.lambda_rec > 0:
+        encoder = nn.Sequential(nn.Linear(data_dim + label_dim, 256), nn.LeakyReLU(0.2),
+                                nn.Linear(256, 256), nn.LeakyReLU(0.2),
+                                nn.Linear(256, 2 * z_dim)).to(device)
+        print(f"VAE-GAN reconstruction on: lambda_rec={args.lambda_rec}, lambda_kl={args.lambda_kl}")
 
     # EMA of the generator weights (as in StyleGAN / diffusion models). The
     # probe, best-checkpoint selection and saved 'generator' all use the EMA
@@ -538,6 +550,8 @@ def train(args):
     optimizer_C = Adam(critic.parameters(), lr=args.lr_d, betas=(0.0, 0.9))
     optimizer_Q = Adam(q_head.parameters(), lr=args.lr_d, betas=(0.0, 0.9))
     optimizer_G = Adam(generator.parameters(), lr=args.lr_g, betas=(0.0, 0.9))
+    optimizer_E = (Adam(encoder.parameters(), lr=args.lr_g, betas=(0.5, 0.9))
+                   if encoder is not None else None)
 
     lambda_gp   = 10
     n_critic    = 5     # critic must stay ahead of G in WGAN-GP
@@ -575,6 +589,8 @@ def train(args):
         critic.load_state_dict(ckpt['critic'])
         q_head.load_state_dict(ckpt['q_head'])
         start_epoch = ckpt['epoch'] + 1
+        if encoder is not None and 'encoder' in ckpt:
+            encoder.load_state_dict(ckpt['encoder'])
         print(f"Resumed at epoch {start_epoch}")
 
     for epoch in range(start_epoch, args.n_epochs):
@@ -681,6 +697,15 @@ def train(args):
                         else torch.zeros((), device=device))
                 l_nnc = (nn_class_distribution_loss(fake_imgs, labels) if lambda_nnc > 0
                          else torch.zeros((), device=device))
+                l_rec = l_kl = torch.zeros((), device=device)
+                if encoder is not None:
+                    optimizer_E.zero_grad()
+                    mu, logvar = encoder(torch.cat([real_imgs, labels], 1)).chunk(2, 1)
+                    logvar = logvar.clamp(-8, 8)
+                    z_enc = mu + torch.randn_like(mu) * torch.exp(0.5 * logvar)
+                    x_rec = generator(torch.cat([z_enc, labels], 1))
+                    l_rec = ((x_rec - real_imgs) ** 2).mean()
+                    l_kl = -0.5 * (1 + logvar - mu ** 2 - logvar.exp()).sum(1).mean()
 
                 # Total G loss: WGAN + composition + geometry + electrostatics
                 #               + reciprocal-space consistency + DFT forces
@@ -689,7 +714,8 @@ def train(args):
                           + lambda_sf * l_sf + args.lambda_force * l_force
                           + lambda_nn * l_nn + lambda_vd * l_vd
                           + lambda_ms * l_ms + lambda_nnc * l_nnc
-                          + args.lambda_relax * l_relax)
+                          + args.lambda_relax * l_relax
+                          + args.lambda_rec * (l_rec + args.lambda_kl * l_kl))
 
                 if not torch.isfinite(g_loss):
                     raise RuntimeError(
@@ -701,6 +727,8 @@ def train(args):
                 g_loss.backward()
                 if step_if_finite(generator, optimizer_G, 'generator', epoch, i) and ema is not None:
                     ema.update_parameters(generator)
+                if encoder is not None:
+                    step_if_finite(encoder, optimizer_E, 'encoder', epoch, i)
 
                 ep_qf   += l_q_fake.item()
                 ep_dist += l_dist.item()
@@ -708,7 +736,8 @@ def train(args):
                 for k, v in (('wgan', g_wgan), ('q_fake', l_q_fake), ('dist', l_dist),
                              ('vol', l_vol), ('mad', l_mad), ('sf', l_sf), ('force', l_force),
                              ('nn', l_nn), ('vpa_dist', l_vd), ('mode_seek', l_ms),
-                             ('nn_class', l_nnc), ('relax', l_relax), ('g_total', g_loss)):
+                             ('nn_class', l_nnc), ('relax', l_relax), ('rec', l_rec),
+                             ('kl', l_kl), ('g_total', g_loss)):
                     ep_terms[k] = ep_terms.get(k, 0.0) + float(v)
                 n_g     += 1
 
@@ -739,6 +768,8 @@ def train(args):
             }
             if ema is not None:
                 ck['generator_live'] = generator.state_dict()
+            if encoder is not None:
+                ck['encoder'] = encoder.state_dict()
             torch.save(ck, save_path)
             print(f"Saved checkpoint to {save_path}")
             # Collapse probe: dead z shows up here at epoch 10 instead of after
@@ -940,6 +971,11 @@ if __name__ == "__main__":
                              "min_dist_penalty it penalises 1.1 A contacts that "
                              "clear every floor, and does not go quiet once a "
                              "floor is cleared. Use with --lambda_dist 0.")
+    parser.add_argument("--lambda_rec",      type=float, default=0.0,
+                        help="VAE-GAN: weight of reconstructing real crystals from "
+                             "their encoded latent (0 = off)")
+    parser.add_argument("--lambda_kl",       type=float, default=0.01,
+                        help="KL weight on the encoder's latent, relative to lambda_rec")
     parser.add_argument("--lambda_relax",    type=float, default=0.0,
                         help="Relaxation distillation: pull generated positions "
                              "toward their own short CHGNet relaxation (fixed "

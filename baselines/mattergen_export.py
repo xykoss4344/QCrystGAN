@@ -7,6 +7,9 @@ the first N is not cherry-picked.
 
     python baselines/mattergen_export.py <mattergen results dir>... --out bench_out/mattergen_mgmno --n 100
 """
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from chemistry import A, B  # QGAN_CHEM picks the system
 import argparse
 import os
 import warnings
@@ -32,13 +35,13 @@ def main():
             seen += 1
             st = Structure.from_str(z.read(name).decode(), fmt='cif')
             c = st.composition
-            if {e.symbol for e in c.elements} != {'Mg', 'Mn', 'O'}:
+            if {e.symbol for e in c.elements} != {A, B, 'O'}:
                 continue
-            if c['Mg'] > 8 or c['Mn'] > 8 or c['O'] > 12:
+            if c[A] > 8 or c[B] > 8 or c['O'] > 12:
                 continue
             st.to(filename=os.path.join(a.out, f'mattergen_mgmno_{kept:04d}.cif'))
             kept += 1
-    print(f'kept {kept} ternary Mg-Mn-O of the first {seen} generated')
+    print(f'kept {kept} ternary {A}-{B}-O of the first {seen} generated')
     assert kept == a.n, f'only {kept} usable crystals, wanted {a.n}'
 
 

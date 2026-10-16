@@ -38,3 +38,18 @@ datasets/unique_sc_mgmno_name_list
 # S.U.N. tracker output
 **/sun_track.csv
 **/epoch_log_from_stdout.csv
+
+# Paper-run artefacts (large; regenerate with benchmark.py / baselines/kim2020/train.py)
+bench300/
+baselines/kim2020/runs_*/
+baselines/kim2020/gen_*/
+baselines/kim2020/train_log_*
+diagnose_rows.csv
+# Datasets not used in the paper (rebuild with datasets/build_chem_dataset.py)
+datasets/oxide_pretrain/
+datasets/mgmno_plus/
+datasets/licoo*/
+datasets/limno*/
+datasets/camno/
+datasets/sym_bank*.pkl
+datasets/mgmno_stable/sym_bank*.pkl

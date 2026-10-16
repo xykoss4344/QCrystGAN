@@ -105,7 +105,9 @@ def sample(gen, labels, n, z_dim=64, batch=64):
     with torch.no_grad():
         for s in range(0, n, batch):
             lab = torch.tensor(labels[idx[s:s + batch]], dtype=torch.float32)
-            z = torch.randn(lab.shape[0], z_dim)
+            # Truncation trick (BigGAN): QGAN_ZSCALE < 1 samples z from a narrower
+            # Gaussian -- quality for diversity. Default 1 = unchanged.
+            z = torch.randn(lab.shape[0], z_dim) * float(os.environ.get('QGAN_ZSCALE', 1))
             out.append(gen(torch.cat([z, lab], dim=1)).cpu().numpy())
     return np.concatenate(out), labels[idx], idx
 
