@@ -10,6 +10,9 @@
    supercell bug was exactly this order going wrong) and encoded.
 4. Round-trip checked: decoding each row with the real species must give the
    crystal's own minimum distance.
+   With QGAN_EHULL_MAX set, only entries whose DFT E_above_hull (lemat_hull.py,
+   lemat_ehull.csv in the data dir) is at most that value are kept -- the
+   stability filter MatterGen applies to Alex-MP-20 (0.1 eV/atom).
 5. rebuild_dataset.py then makes supercells, augmentation, labels, quantiles and
    the novelty reference; this writes the contact floors (floors.json).
 """
@@ -38,6 +41,12 @@ def load_lemat():
     from pymatgen.core import Lattice, Structure
     want = sorted([A, B, 'O'])
     out = []
+    ehull = None
+    if os.environ.get('QGAN_EHULL_MAX'):
+        import csv
+        emax = float(os.environ['QGAN_EHULL_MAX'])
+        ehull = {r['immutable_id']: float(r['e_hull'])
+                 for r in csv.DictReader(open(data_path('lemat_ehull.csv')))}
     cols = ['immutable_id', 'elements', 'nelements', 'species_at_sites',
             'cartesian_site_positions', 'lattice_vectors']
     for f in sorted(glob.glob(LEMAT)):
@@ -48,6 +57,8 @@ def load_lemat():
             if sorted(r['elements']) != want:
                 continue
             if sp.count(A) > 8 or sp.count(B) > 8 or sp.count('O') > 12:
+                continue
+            if ehull is not None and ehull.get(r['immutable_id'], 1e9) > emax:
                 continue
             st = Structure(Lattice(r['lattice_vectors']), sp, r['cartesian_site_positions'],
                            coords_are_cartesian=True)

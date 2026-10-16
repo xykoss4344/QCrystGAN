@@ -16,9 +16,16 @@ CHEMS = {
     'mgmno': ('Mg', 'Mn', 2),
     'mgmno_lemat': ('Mg', 'Mn', 2),   # data-size control: LeMat-Bulk's Mg-Mn-O only
     'mgmno_plus': ('Mg', 'Mn', 2),    # KAIST + LeMat-Bulk Mg-Mn-O (datasets/merge_mgmno_plus.py)
+    'mgmno_stable': ('Mg', 'Mn', 2),  # LeMat Mg-Mn-O with DFT E_hull <= 0.1 (MatterGen's Alex-MP-20 rule)
+    'mgmno_stable20': ('Mg', 'Mn', 2),  # same, E_hull <= 0.2
+    'oxide_pretrain': ('Mg', 'Mn', 2),  # ~1200 metastable A-B-O oxides from 2775 LeMat systems,
+                                        # cations renamed to the Mg/Mn slots (pretraining only)
     'limno': ('Li', 'Mn', 1),
     'licoo': ('Li', 'Co', 1),
     'camno': ('Ca', 'Mn', 2),
+    'limno_stable': ('Li', 'Mn', 1),   # E_hull <= 0.1 subsets (generalisation of the final recipe)
+    'licoo_stable': ('Li', 'Co', 1),
+    'camno_stable': ('Ca', 'Mn', 2),
 }
 CHEM = os.environ.get('QGAN_CHEM', 'mgmno')
 A, B, Q_A = CHEMS[CHEM]
