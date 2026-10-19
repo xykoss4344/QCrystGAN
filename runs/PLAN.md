@@ -240,9 +240,9 @@ Metric focus (user, 2026-10-04): M.S.U.N. and the modern LeMat-GenBench metrics.
 | | metastable | M.S.U.N. (95% CI) | novel | unique | E_hull |
 |---|---|---|---|---|---|
 | MatterGen Mg-Mn-O, n=300 | 48% | 24.0% (20-29) | 80% | 75% | 0.167 |
-| SH-QGAN stable-data, n=300 | 35% | 22.3% (18-27) | 95% | 85% | 0.156 |
+| QCrystGAN stable-data, n=300 | 35% | 22.3% (18-27) | 95% | 85% | 0.156 |
 | MatterGen + CHGNet screen (best 100/300) | 90% | 39.0% (30-49) | 61% | 54% | 0.071 |
-| SH-QGAN stable + CHGNet screen | 75% | 44.0% (35-54) | 86% | 72% | 0.093 |
+| QCrystGAN stable + CHGNet screen | 75% | 44.0% (35-54) | 86% | 72% | 0.093 |
 MatterGen's n=100 34% was its first 100 (55% metastable, reproduced here); samples 101-300 are 45%
 metastable and its uniqueness falls to 75% at n=300 (72 M.S.U.N. of 300). At equal n we are tied
 unscreened and ahead screened (CIs overlap). M.S.U.N. depends on n through uniqueness: always compare equal n.
