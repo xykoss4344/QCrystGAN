@@ -1,6 +1,6 @@
 """Symmetry templates: space group + Wyckoff sites -> the 28-slot layout.
 
-Every SH-QGAN crystal so far is P1; 83% of the real training crystals are not.
+Every QCrystGAN crystal so far is P1; 83% of the real training crystals are not.
 A template fixes the space group and which Wyckoff site each atom sits on. The
 generator then only chooses one free point per site (plus the cell); `expand`
 copies it onto every symmetric position with fixed affine maps, so the output

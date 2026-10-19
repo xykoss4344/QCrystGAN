@@ -1,5 +1,5 @@
 """Sample the Kim et al. 2020 GAN for the benchmark: 300 crystals, compositions drawn from the
-training labels exactly as for SH-QGAN (eval_wave.sample), written as CIFs.
+training labels exactly as for QCrystGAN (eval_wave.sample), written as CIFs.
 
     QGAN_CHEM=mgmno_stable python baselines/kim2020/sample.py runs_s1/generator_500 OUT_DIR --seed 1
 
