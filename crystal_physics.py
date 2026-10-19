@@ -301,7 +301,7 @@ def structure_factor_features(fake, labels, g):
     geometry_features exists. These are the intensities an XRD measurement
     returns.
 
-    ponytail: fixed-setting intensities, not powder-binned by |G|, so they are
+    note: fixed-setting intensities, not powder-binned by |G|, so they are
     tied to the axis convention the dataset fixes. Bin by |G| in reciprocal
     Angstroms if axis-independent comparison is ever needed.
     """

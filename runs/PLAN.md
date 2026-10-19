@@ -166,7 +166,7 @@ every method alike.
 
 ## Wave S — memory event (2026-10-04, overnight)
 Free RAM fell to ~8 GB of 62 with 4 trainings + 4 sun_track trackers + CHGNet
-relax + MatterGen generation. Claude Code reaped its background shells:
+relax + MatterGen generation. The job runner reaped its background shells:
 - MatterGen part3 generation (480 extra samples): KILLED, nothing written. Not restarted.
 - bench_full.sh bench300/w23_relax3_s1_200: shell killed; the relax_cifs.py child
   kept running, but the LeMat steps after it will NOT run. Rerun

@@ -348,7 +348,7 @@ class PQWGAN_CC_Crystal():
             # varied the batch is. Without it, "one crystal per label" is a Nash
             # point the critic literally cannot see, let alone punish -- which is
             # the collapse mode this model fell into.
-            # ponytail: couples samples so the GP is approximate here; standard
+            # note: couples samples so the GP is approximate here; standard
             # practice, revisit only if the GP term misbehaves.
             mbstd = x.std(dim=0, unbiased=False).mean().expand(x.shape[0], 1)
             x = torch.cat([x, mbstd], dim=1)
@@ -524,7 +524,7 @@ class PQWGAN_CC_Crystal():
                     raw = expand(raw, tb)      # head output = one free point per site
                 raw = self.refiner(raw, cell, label, tok)
                 if tb is not None:
-                    # ponytail: keeps only each site's first-slot update; average
+                    # note: keeps only each site's first-slot update; average
                     # the refiner's moves over the orbit if that proves lossy.
                     raw = project(raw, tb)
                 raw = raw.reshape(-1, 84)
