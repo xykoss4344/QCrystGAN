@@ -1,11 +1,8 @@
-# SH-QGAN — Split-Head Quantum GAN for Crystal Generation
+# QCrystGAN — Quantum Crystal GAN
 
 Hybrid quantum-classical WGAN-GP that generates Mg-Mn-O crystal structures. A
-shared quantum trunk (PennyLane data-reupload circuits) feeds a split head: one
-for the unit cell, one that places 28 atoms as a permutation-equivariant set.
-
-Backs submission 2002. **Full project memory, evidence, and the resubmission
-checklist live in `../research-vault/` — start at `Home.md`.**
+shared quantum trunk (PennyLane data-reupload circuits) feeds decoupled heads:
+one for the unit cell, one that places 28 atoms as a permutation-equivariant set.
 
 ## Layout
 
@@ -49,7 +46,7 @@ python dft_distill.py        # force surrogate vs finite-difference energy
 ## Three rules this project learned the hard way
 
 1. **Never report validity without volume per atom beside it.** A 98.8% figure
-   came from inflating the unit cell ~6x. See `Gaming the Metric.md`.
+   came from inflating the unit cell ~6x.
 2. **A peak is not a result.** Stable, multi-seed, or it does not go in a table.
 3. **Report distinct source structures, never augmented row counts.** The 112k
    rows are 107 Materials Project entries.
@@ -58,8 +55,7 @@ python dft_distill.py        # force surrogate vs finite-difference energy
 
 CPU, single-threaded per process, many processes in parallel. The GPU is
 *slower* here — at 12 qubits the state vector is 4096 complex numbers and the
-simulation is kernel-launch bound. Measured in `../research-vault/Compute Plan.md`.
-Concurrent CUDA contexts also exhaust VRAM, so `--device` defaults to `cpu`.
+simulation is kernel-launch bound. Concurrent CUDA contexts also exhaust VRAM, so `--device` defaults to `cpu`.
 
 ~60 s/epoch. Cap parallel runs at 8 on a 16-core box; 12 exhausted memory.
 
@@ -76,4 +72,4 @@ minutes later and the cause is easy to misattribute to the training config.
 - Check free RAM before launching, not after: `(Get-CimInstance
   Win32_OperatingSystem).FreePhysicalMemory/1MB`.
 - Kill with PowerShell `Stop-Process -Id <id> -Force`. Bash `kill` takes the
-  shell wrapper and leaves Python running (see the vault).
+  shell wrapper and leaves Python running.

@@ -24,7 +24,7 @@ from models import *
 import random
 
 
-cuda = False   # baseline runs on CPU (GPU reserved for the SH-QGAN sweep)
+cuda = False   # baseline runs on CPU (GPU reserved for the QCrystGAN sweep)
 FloatTensor = torch.cuda.FloatTensor if cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if cuda else torch.LongTensor
 
