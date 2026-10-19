@@ -2,7 +2,7 @@
 # Li generalisation of the final recipe (same as chain_camno.sh), one system per call:
 #   sh chain_li.sh limno LiMnO 8.9 14.0      sh chain_li.sh licoo LiCoO 7.9 12.3
 # Data: LeMat Li-B-O crystals with benchmark-MLIP E_hull <= 0.1 (LeMat DFT hull is broken for Li).
-# ponytail: mkdir lock = one LeMat at a time across both chains.
+# note: mkdir lock = one LeMat at a time across both chains.
 S=$1; MG=$2; P=/c/Users/Adminb/AppData/Local/Python/pythoncore-3.12-64/python.exe
 C=${S}_stable
 lemat() { until mkdir /tmp/lemat_lock 2>/dev/null; do sleep 120; done; "$@"; rmdir /tmp/lemat_lock; }

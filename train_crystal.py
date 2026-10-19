@@ -191,7 +191,7 @@ def volume_penalty(fake, labels, lo=None, hi=None):
 def _pair_distances(fake, labels):
     """(B, 28, 28) interatomic distances in Angstrom under the minimum image.
 
-    ponytail: single-image MIC wrap, exact for near-orthogonal cells and a good
+    note: single-image MIC wrap, exact for near-orthogonal cells and a good
     approximation otherwise. Swap for the full 27-image sum if strongly
     triclinic cells start mattering.
     """

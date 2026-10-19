@@ -249,7 +249,7 @@ def build_bank(max_layouts=64, seed=0, workers=8):
     Mg-Mn-O). Layouts are enumerated by pyxtal for each (composition, group), not
     copied from the data: 585 of 686 real crystals have a template of their own,
     so copying would regenerate the training set.
-    ponytail: uniform over layouts within a group, capped at `max_layouts` per
+    note: uniform over layouts within a group, capped at `max_layouts` per
     pair; weight by the data's Wyckoff statistics if special positions dominate.
     """
     import collections
@@ -368,7 +368,7 @@ class TemplateSampler:
         self._lw = {}
         self.rng = np.random.default_rng(seed)
         self._cache = {}
-        self._placed = {}   # ponytail: unbounded; a few thousand (template, mask) pairs
+        self._placed = {}   # note: unbounded; a few thousand (template, mask) pairs
 
     def sample(self, comp):
         entries = self.bank.get(tuple(comp))
